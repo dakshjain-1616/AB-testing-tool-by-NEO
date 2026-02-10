@@ -1,0 +1,18 @@
+experiment:
+  name: "Model A vs Model B Conversion Test"
+  traffic_split:
+    model_a: 0.5
+    model_b: 0.5
+  metrics:
+    - name: "conversion"
+      type: "binary"
+      target: "maximize"
+    - name: "latency"
+      type: "continuous"
+      target: "minimize"
+      unit: "ms"
+  statistical_config:
+    alpha: 0.05
+    confidence_level: 0.95
+    min_sample_size: 100
+    power: 0.8

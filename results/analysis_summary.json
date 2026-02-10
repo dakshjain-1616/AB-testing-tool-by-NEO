@@ -1,0 +1,84 @@
+{
+  "experiment_summary": {
+    "total_requests": 4000,
+    "traffic_distribution": {
+      "model_b": 2096,
+      "model_a": 1904
+    }
+  },
+  "conversion_metrics": {
+    "model_b": {
+      "sample_size": 2096,
+      "conversions": 232,
+      "conversion_rate": 0.11068702290076336,
+      "standard_error": 0.0068529889096138686,
+      "ci_lower": 0.09725516463792018,
+      "ci_upper": 0.12411888116360655
+    },
+    "model_a": {
+      "sample_size": 1904,
+      "conversions": 190,
+      "conversion_rate": 0.09978991596638656,
+      "standard_error": 0.006868814583344158,
+      "ci_lower": 0.08632703938303202,
+      "ci_upper": 0.1132527925497411
+    }
+  },
+  "latency_metrics": {
+    "model_b": {
+      "sample_size": 2096,
+      "mean_latency": 47.8696620941037,
+      "std_latency": 9.923477866952934,
+      "median_latency": 47.89005119865015,
+      "p50": 47.89005119865015,
+      "p95": 63.85167838258527,
+      "p99": 70.48065354999818,
+      "ci_lower": 47.44482313354511,
+      "ci_upper": 48.2945010546623
+    },
+    "model_a": {
+      "sample_size": 1904,
+      "mean_latency": 49.9871581912522,
+      "std_latency": 10.083852032391041,
+      "median_latency": 49.98305058485623,
+      "p50": 49.98305058485623,
+      "p95": 66.5202472618489,
+      "p99": 74.45535195752419,
+      "ci_lower": 49.53420944313716,
+      "ci_upper": 50.44010693936724
+    }
+  },
+  "statistical_tests": {
+    "chi_square_test": {
+      "test_name": "Chi-Square Test for Conversion",
+      "chi2_statistic": 1.14259937094606,
+      "p_value": 0.28510373667481437,
+      "degrees_of_freedom": 1,
+      "is_significant": false,
+      "contingency_table": {
+        "false": {
+          "model_a": 1714,
+          "model_b": 1864
+        },
+        "true": {
+          "model_a": 190,
+          "model_b": 232
+        }
+      }
+    },
+    "t_test": {
+      "test_name": "Independent T-Test for Latency",
+      "t_statistic": 6.688302076093115,
+      "p_value": 2.5704529669572177e-11,
+      "mean_difference": 2.1174960971484964,
+      "cohens_d": 0.2116652330709248,
+      "is_significant": true
+    }
+  },
+  "winner_analysis": {
+    "overall_winner": "model_b",
+    "conversion_winner": null,
+    "latency_winner": "model_b",
+    "recommendation": "Model B has significantly better latency (-4.24%), but conversion rates are similar. Consider business priorities."
+  }
+}
