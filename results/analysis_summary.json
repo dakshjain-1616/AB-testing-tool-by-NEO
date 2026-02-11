@@ -1,84 +1,153 @@
 {
   "experiment_summary": {
-    "total_requests": 4000,
+    "total_requests": 2000,
+    "num_variants": 3,
+    "baseline_variant": "baseline",
     "traffic_distribution": {
-      "model_b": 2096,
-      "model_a": 1904
+      "baseline": 756,
+      "variant_a": 640,
+      "variant_b": 604
     }
   },
   "conversion_metrics": {
-    "model_b": {
-      "sample_size": 2096,
-      "conversions": 232,
-      "conversion_rate": 0.11068702290076336,
-      "standard_error": 0.0068529889096138686,
-      "ci_lower": 0.09725516463792018,
-      "ci_upper": 0.12411888116360655
+    "variant_b": {
+      "sample_size": 604,
+      "conversions": 76,
+      "conversion_rate": 0.12582781456953643,
+      "standard_error": 0.013494858945683428,
+      "ci_lower": 0.09937789103599691,
+      "ci_upper": 0.15227773810307593
     },
-    "model_a": {
-      "sample_size": 1904,
-      "conversions": 190,
-      "conversion_rate": 0.09978991596638656,
-      "standard_error": 0.006868814583344158,
-      "ci_lower": 0.08632703938303202,
-      "ci_upper": 0.1132527925497411
+    "baseline": {
+      "sample_size": 756,
+      "conversions": 75,
+      "conversion_rate": 0.0992063492063492,
+      "standard_error": 0.010872301677254892,
+      "ci_lower": 0.07789663791892962,
+      "ci_upper": 0.12051606049376878
+    },
+    "variant_a": {
+      "sample_size": 640,
+      "conversions": 81,
+      "conversion_rate": 0.1265625,
+      "standard_error": 0.013142514123645992,
+      "ci_lower": 0.10080317231765384,
+      "ci_upper": 0.15232182768234614
     }
   },
   "latency_metrics": {
-    "model_b": {
-      "sample_size": 2096,
-      "mean_latency": 47.8696620941037,
-      "std_latency": 9.923477866952934,
-      "median_latency": 47.89005119865015,
-      "p50": 47.89005119865015,
-      "p95": 63.85167838258527,
-      "p99": 70.48065354999818,
-      "ci_lower": 47.44482313354511,
-      "ci_upper": 48.2945010546623
+    "variant_b": {
+      "sample_size": 604,
+      "mean_latency": 52.05914284252915,
+      "std_latency": 11.714083336575104,
+      "median_latency": 51.65798071863048,
+      "p50": 51.65798071863048,
+      "p95": 71.1836097615261,
+      "p99": 77.36448713346383,
+      "ci_lower": 51.12492983173909,
+      "ci_upper": 52.99335585331921
     },
-    "model_a": {
-      "sample_size": 1904,
-      "mean_latency": 49.9871581912522,
-      "std_latency": 10.083852032391041,
-      "median_latency": 49.98305058485623,
-      "p50": 49.98305058485623,
-      "p95": 66.5202472618489,
-      "p99": 74.45535195752419,
-      "ci_lower": 49.53420944313716,
-      "ci_upper": 50.44010693936724
+    "baseline": {
+      "sample_size": 756,
+      "mean_latency": 49.10619397847114,
+      "std_latency": 9.975567838161812,
+      "median_latency": 49.138759550832745,
+      "p50": 49.138759550832745,
+      "p95": 64.99849934672245,
+      "p99": 71.8154902935343,
+      "ci_lower": 48.39509050507157,
+      "ci_upper": 49.81729745187071
+    },
+    "variant_a": {
+      "sample_size": 640,
+      "mean_latency": 47.661971313275814,
+      "std_latency": 9.750205229836919,
+      "median_latency": 47.429776069719516,
+      "p50": 47.429776069719516,
+      "p95": 63.93379307136432,
+      "p99": 68.70264961156185,
+      "ci_lower": 46.90656633685674,
+      "ci_upper": 48.417376289694886
     }
   },
   "statistical_tests": {
     "chi_square_test": {
       "test_name": "Chi-Square Test for Conversion",
-      "chi2_statistic": 1.14259937094606,
-      "p_value": 0.28510373667481437,
-      "degrees_of_freedom": 1,
+      "chi2_statistic": 3.3444433390638073,
+      "p_value": 0.18782930710108586,
+      "degrees_of_freedom": 2,
       "is_significant": false,
       "contingency_table": {
         "false": {
-          "model_a": 1714,
-          "model_b": 1864
+          "baseline": 681,
+          "variant_a": 559,
+          "variant_b": 528
         },
         "true": {
-          "model_a": 190,
-          "model_b": 232
+          "baseline": 75,
+          "variant_a": 81,
+          "variant_b": 76
         }
       }
     },
-    "t_test": {
-      "test_name": "Independent T-Test for Latency",
-      "t_statistic": 6.688302076093115,
-      "p_value": 2.5704529669572177e-11,
-      "mean_difference": 2.1174960971484964,
-      "cohens_d": 0.2116652330709248,
-      "is_significant": true
+    "anova_test": {
+      "test_name": "One-Way ANOVA for Latency",
+      "f_statistic": 28.46547347470824,
+      "p_value": 6.464545286625396e-13,
+      "is_significant": true,
+      "num_groups": 3
+    },
+    "pairwise_conversion_tests": {
+      "test_name": "Pairwise Proportion Tests with Bonferroni Correction",
+      "num_comparisons": 2,
+      "comparisons": {
+        "baseline_vs_variant_a": {
+          "z_statistic": -1.616499003150627,
+          "p_value": 0.10598646875231732,
+          "conversion_diff": 0.027356150793650794,
+          "relative_lift_pct": 27.575,
+          "adjusted_alpha": 0.025,
+          "is_significant": false
+        },
+        "baseline_vs_variant_b": {
+          "z_statistic": -1.5526699735950247,
+          "p_value": 0.12050199925835892,
+          "conversion_diff": 0.026621465363187227,
+          "relative_lift_pct": 26.834437086092727,
+          "adjusted_alpha": 0.025,
+          "is_significant": false
+        }
+      },
+      "correction_method": "bonferroni"
+    },
+    "pairwise_latency_tests": {
+      "test_name": "Pairwise T-Tests with Bonferroni Correction",
+      "num_comparisons": 2,
+      "comparisons": {
+        "baseline_vs_variant_a": {
+          "t_statistic": 2.7233127301291153,
+          "p_value": 0.006543736335605183,
+          "mean_difference": 1.4442226651953263,
+          "cohens_d": 0.14642046376963574,
+          "adjusted_alpha": 0.025,
+          "is_significant": true
+        },
+        "baseline_vs_variant_b": {
+          "t_statistic": -5.018327457338381,
+          "p_value": 5.90267864426281e-07,
+          "mean_difference": -2.9529488640580084,
+          "cohens_d": -0.2714205422924476,
+          "adjusted_alpha": 0.025,
+          "is_significant": true
+        }
+      },
+      "correction_method": "bonferroni"
     }
   },
   "winner_analysis": {
-    "overall_winner": "model_b",
+    "overall_winner": "variant_a",
     "conversion_winner": null,
-    "latency_winner": "model_b",
-    "recommendation": "Model B has significantly better latency (-4.24%), but conversion rates are similar. Consider business priorities."
+    "latency_winner": "variant_a",
+    "recommendation": "Variant A has significantly better latency (47.66ms) with 2.94% improvement over baseline"
   }
 }

@@ -9,10 +9,10 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from models import ModelA, ModelB
+from models import get_model_registry
 from ab_core import Router, AsyncLogger
 
-app = FastAPI(title="A/B Testing Model Serving")
+app = FastAPI(title="Multi-Variant A/B/n Testing Model Serving")
 
 class PredictionRequest(BaseModel):
     user_id: str
@@ -31,13 +31,12 @@ traffic_split = config['experiment']['traffic_split']
 router = Router(traffic_split)
 logger = AsyncLogger("/root/AB_testing/data/experiment_logs.csv")
 
-model_a = ModelA()
-model_b = ModelB()
+models = get_model_registry()
 
-models = {
-    "model_a": model_a,
-    "model_b": model_b
-}
+active_variants = list(traffic_split.keys())
+for variant in active_variants:
+    if variant not in models:
+        raise ValueError(f"Variant '{variant}' not found in model registry")
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):

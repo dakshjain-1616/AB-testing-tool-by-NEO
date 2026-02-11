@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
-from scipy.stats import chi2_contingency, ttest_ind
+from scipy.stats import chi2_contingency, ttest_ind, f_oneway
+from itertools import combinations
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple
 
 def load_experiment_data(log_file: str) -> pd.DataFrame:
     df = pd.read_csv(log_file)
@@ -75,67 +76,229 @@ def perform_chi_square_test(df: pd.DataFrame) -> Dict[str, Any]:
         'contingency_table': contingency_table.to_dict()
     }
 
-def perform_t_test(df: pd.DataFrame) -> Dict[str, Any]:
-    model_a_latency = df[df['variant'] == 'model_a']['latency_ms']
-    model_b_latency = df[df['variant'] == 'model_b']['latency_ms']
+def perform_anova_test(df: pd.DataFrame) -> Dict[str, Any]:
+    variants = df['variant'].unique()
+    groups = [df[df['variant'] == v]['latency_ms'].values for v in variants]
     
-    t_stat, p_value = ttest_ind(model_a_latency, model_b_latency)
-    
-    mean_diff = model_a_latency.mean() - model_b_latency.mean()
-    pooled_std = np.sqrt((model_a_latency.var() + model_b_latency.var()) / 2)
-    cohens_d = mean_diff / pooled_std if pooled_std > 0 else 0
+    f_stat, p_value = f_oneway(*groups)
     
     return {
-        'test_name': 'Independent T-Test for Latency',
-        't_statistic': float(t_stat),
+        'test_name': 'One-Way ANOVA for Latency',
+        'f_statistic': float(f_stat),
         'p_value': float(p_value),
-        'mean_difference': float(mean_diff),
-        'cohens_d': float(cohens_d),
-        'is_significant': bool(p_value < 0.05)
+        'is_significant': bool(p_value < 0.05),
+        'num_groups': len(variants)
     }
 
-def determine_winner(conversion_metrics: Dict, latency_metrics: Dict, 
-                     chi_square_result: Dict, t_test_result: Dict) -> Dict[str, Any]:
+def perform_pairwise_t_tests(df: pd.DataFrame, baseline: str = None, 
+                              correction: str = 'bonferroni') -> Dict[str, Any]:
+    variants = sorted(df['variant'].unique())
     
-    model_a_conv = conversion_metrics['model_a']['conversion_rate']
-    model_b_conv = conversion_metrics['model_b']['conversion_rate']
+    if baseline and baseline in variants:
+        comparisons = [(baseline, v) for v in variants if v != baseline]
+    else:
+        comparisons = list(combinations(variants, 2))
     
-    model_a_lat = latency_metrics['model_a']['mean_latency']
-    model_b_lat = latency_metrics['model_b']['mean_latency']
+    results = {}
+    p_values = []
+    
+    for var1, var2 in comparisons:
+        group1 = df[df['variant'] == var1]['latency_ms']
+        group2 = df[df['variant'] == var2]['latency_ms']
+        
+        t_stat, p_value = ttest_ind(group1, group2)
+        
+        mean_diff = group1.mean() - group2.mean()
+        pooled_std = np.sqrt((group1.var() + group2.var()) / 2)
+        cohens_d = mean_diff / pooled_std if pooled_std > 0 else 0
+        
+        comparison_key = f"{var1}_vs_{var2}"
+        results[comparison_key] = {
+            't_statistic': float(t_stat),
+            'p_value': float(p_value),
+            'mean_difference': float(mean_diff),
+            'cohens_d': float(cohens_d)
+        }
+        p_values.append(p_value)
+    
+    if correction == 'bonferroni' and len(p_values) > 0:
+        adjusted_alpha = 0.05 / len(comparisons)
+        for comp_key in results:
+            results[comp_key]['adjusted_alpha'] = float(adjusted_alpha)
+            results[comp_key]['is_significant'] = bool(
+                results[comp_key]['p_value'] < adjusted_alpha
+            )
+    else:
+        for comp_key in results:
+            results[comp_key]['is_significant'] = bool(
+                results[comp_key]['p_value'] < 0.05
+            )
+    
+    return {
+        'test_name': f'Pairwise T-Tests with {correction.title()} Correction',
+        'num_comparisons': len(comparisons),
+        'comparisons': results,
+        'correction_method': correction
+    }
+
+def perform_pairwise_proportion_tests(df: pd.DataFrame, baseline: str = None,
+                                       correction: str = 'bonferroni') -> Dict[str, Any]:
+    variants = sorted(df['variant'].unique())
+    
+    if baseline and baseline in variants:
+        comparisons = [(baseline, v) for v in variants if v != baseline]
+    else:
+        comparisons = list(combinations(variants, 2))
+    
+    results = {}
+    p_values = []
+    
+    for var1, var2 in comparisons:
+        group1 = df[df['variant'] == var1]
+        group2 = df[df['variant'] == var2]
+        
+        n1 = len(group1)
+        n2 = len(group2)
+        x1 = group1['conversion'].sum()
+        x2 = group2['conversion'].sum()
+        
+        p1 = x1 / n1 if n1 > 0 else 0
+        p2 = x2 / n2 if n2 > 0 else 0
+        p_pooled = (x1 + x2) / (n1 + n2) if (n1 + n2) > 0 else 0
+        
+        se = np.sqrt(p_pooled * (1 - p_pooled) * (1/n1 + 1/n2)) if p_pooled > 0 else 1e-10
+        z_stat = (p1 - p2) / se
+        p_value = 2 * (1 - stats.norm.cdf(abs(z_stat)))
+        
+        relative_lift = ((p2 - p1) / p1 * 100) if p1 > 0 else 0
+        
+        comparison_key = f"{var1}_vs_{var2}"
+        results[comparison_key] = {
+            'z_statistic': float(z_stat),
+            'p_value': float(p_value),
+            'conversion_diff': float(p2 - p1),
+            'relative_lift_pct': float(relative_lift)
+        }
+        p_values.append(p_value)
+    
+    if correction == 'bonferroni' and len(p_values) > 0:
+        adjusted_alpha = 0.05 / len(comparisons)
+        for comp_key in results:
+            results[comp_key]['adjusted_alpha'] = float(adjusted_alpha)
+            results[comp_key]['is_significant'] = bool(
+                results[comp_key]['p_value'] < adjusted_alpha
+            )
+    else:
+        for comp_key in results:
+            results[comp_key]['is_significant'] = bool(
+                results[comp_key]['p_value'] < 0.05
+            )
+    
+    return {
+        'test_name': f'Pairwise Proportion Tests with {correction.title()} Correction',
+        'num_comparisons': len(comparisons),
+        'comparisons': results,
+        'correction_method': correction
+    }
+
+def determine_winner_multivariant(conversion_metrics: Dict, latency_metrics: Dict,
+                                   chi_square_result: Dict, anova_result: Dict,
+                                   pairwise_conversion: Dict, pairwise_latency: Dict,
+                                   baseline: str = 'baseline') -> Dict[str, Any]:
+    
+    variants = list(conversion_metrics.keys())
     
     conversion_winner = None
     latency_winner = None
+    overall_winner = None
     
     if chi_square_result['is_significant']:
-        conversion_winner = 'model_b' if model_b_conv > model_a_conv else 'model_a'
-        conv_lift = ((model_b_conv - model_a_conv) / model_a_conv * 100) if conversion_winner == 'model_b' else ((model_a_conv - model_b_conv) / model_b_conv * 100)
-    else:
-        conv_lift = 0
+        best_conversion_rate = max(
+            [(v, conversion_metrics[v]['conversion_rate']) for v in variants],
+            key=lambda x: x[1]
+        )
+        conversion_winner = best_conversion_rate[0]
+        
+        if baseline in variants:
+            baseline_vs_winner = f"{baseline}_vs_{conversion_winner}"
+            winner_vs_baseline = f"{conversion_winner}_vs_{baseline}"
+            
+            if baseline_vs_winner in pairwise_conversion['comparisons']:
+                is_sig = pairwise_conversion['comparisons'][baseline_vs_winner]['is_significant']
+            elif winner_vs_baseline in pairwise_conversion['comparisons']:
+                is_sig = pairwise_conversion['comparisons'][winner_vs_baseline]['is_significant']
+            else:
+                is_sig = False
+            
+            if not is_sig and conversion_winner != baseline:
+                conversion_winner = None
     
-    if t_test_result['is_significant']:
-        latency_winner = 'model_b' if model_b_lat < model_a_lat else 'model_a'
-        lat_improvement = ((model_a_lat - model_b_lat) / model_a_lat * 100) if latency_winner == 'model_b' else ((model_b_lat - model_a_lat) / model_b_lat * 100)
-    else:
-        lat_improvement = 0
+    if anova_result['is_significant']:
+        best_latency = min(
+            [(v, latency_metrics[v]['mean_latency']) for v in variants],
+            key=lambda x: x[1]
+        )
+        latency_winner = best_latency[0]
+        
+        if baseline in variants:
+            baseline_vs_winner = f"{baseline}_vs_{latency_winner}"
+            winner_vs_baseline = f"{latency_winner}_vs_{baseline}"
+            
+            if baseline_vs_winner in pairwise_latency['comparisons']:
+                is_sig = pairwise_latency['comparisons'][baseline_vs_winner]['is_significant']
+            elif winner_vs_baseline in pairwise_latency['comparisons']:
+                is_sig = pairwise_latency['comparisons'][winner_vs_baseline]['is_significant']
+            else:
+                is_sig = False
+            
+            if not is_sig and latency_winner != baseline:
+                latency_winner = None
     
-    overall_winner = None
-    recommendation = ""
+    recommendation_parts = []
     
-    if conversion_winner and latency_winner:
-        if conversion_winner == latency_winner:
+    if conversion_winner:
+        conv_rate = conversion_metrics[conversion_winner]['conversion_rate']
+        baseline_conv = conversion_metrics.get(baseline, {}).get('conversion_rate', 0)
+        
+        if baseline in variants and conversion_winner != baseline:
+            lift = ((conv_rate - baseline_conv) / baseline_conv * 100) if baseline_conv > 0 else 0
+            recommendation_parts.append(
+                f"{conversion_winner.replace('_', ' ').title()} shows significantly better conversion "
+                f"rate ({conv_rate*100:.2f}%) with +{lift:.2f}% lift over baseline"
+            )
             overall_winner = conversion_winner
-            recommendation = f"{overall_winner.replace('_', ' ').title()} is the clear winner with significantly better conversion rate (+{conv_lift:.2f}%) and latency (-{lat_improvement:.2f}%)."
         else:
+            recommendation_parts.append(
+                f"{conversion_winner.replace('_', ' ').title()} has the best conversion rate ({conv_rate*100:.2f}%)"
+            )
             overall_winner = conversion_winner
-            recommendation = f"{conversion_winner.replace('_', ' ').title()} wins on conversion (+{conv_lift:.2f}%), but {latency_winner.replace('_', ' ').title()} has better latency. Recommend {conversion_winner.replace('_', ' ').title()} as conversion is typically more critical."
-    elif conversion_winner:
-        overall_winner = conversion_winner
-        recommendation = f"{conversion_winner.replace('_', ' ').title()} is the winner with significantly better conversion rate (+{conv_lift:.2f}%). Latency difference is not statistically significant."
-    elif latency_winner:
-        overall_winner = latency_winner
-        recommendation = f"{latency_winner.replace('_', ' ').title()} has significantly better latency (-{lat_improvement:.2f}%), but conversion rates are similar. Consider business priorities."
-    else:
-        recommendation = "No significant differences detected between models. Either model can be selected, or continue testing with larger sample size."
+    
+    if latency_winner:
+        lat = latency_metrics[latency_winner]['mean_latency']
+        baseline_lat = latency_metrics.get(baseline, {}).get('mean_latency', float('inf'))
+        
+        if baseline in variants and latency_winner != baseline:
+            improvement = ((baseline_lat - lat) / baseline_lat * 100) if baseline_lat > 0 else 0
+            recommendation_parts.append(
+                f"{latency_winner.replace('_', ' ').title()} has significantly better latency "
+                f"({lat:.2f}ms) with {improvement:.2f}% improvement over baseline"
+            )
+            if not overall_winner:
+                overall_winner = latency_winner
+        else:
+            recommendation_parts.append(
+                f"{latency_winner.replace('_', ' ').title()} has the best latency ({lat:.2f}ms)"
+            )
+            if not overall_winner:
+                overall_winner = latency_winner
+    
+    if not recommendation_parts:
+        recommendation_parts.append(
+            "No statistically significant differences detected across variants. "
+            "Consider increasing sample size or continuing the experiment."
+        )
+    
+    recommendation = " ".join(recommendation_parts)
     
     return {
         'overall_winner': overall_winner,
@@ -152,18 +315,23 @@ def run_analysis():
     print(f"\nTraffic distribution:")
     print(df['variant'].value_counts())
     
+    variants = sorted(df['variant'].unique())
+    baseline = 'baseline' if 'baseline' in variants else variants[0]
+    
     print("\n" + "="*60)
     print("SANITY CHECK: Sample Sizes")
     print("="*60)
     variant_counts = df['variant'].value_counts()
-    for variant, count in variant_counts.items():
+    for variant in variants:
+        count = variant_counts[variant]
         print(f"{variant}: {count} ({count/len(df)*100:.1f}%)")
     
     print("\n" + "="*60)
     print("CONVERSION METRICS")
     print("="*60)
     conversion_metrics = calculate_conversion_metrics(df)
-    for variant, metrics in conversion_metrics.items():
+    for variant in variants:
+        metrics = conversion_metrics[variant]
         print(f"\n{variant.upper()}:")
         print(f"  Sample Size: {metrics['sample_size']}")
         print(f"  Conversions: {metrics['conversions']}")
@@ -174,7 +342,8 @@ def run_analysis():
     print("LATENCY METRICS")
     print("="*60)
     latency_metrics = calculate_latency_metrics(df)
-    for variant, metrics in latency_metrics.items():
+    for variant in variants:
+        metrics = latency_metrics[variant]
         print(f"\n{variant.upper()}:")
         print(f"  Sample Size: {metrics['sample_size']}")
         print(f"  Mean Latency: {metrics['mean_latency']:.2f} ms")
@@ -194,32 +363,55 @@ def run_analysis():
     print(f"  P-value: {chi_square_result['p_value']:.6f}")
     print(f"  Significant (α=0.05): {chi_square_result['is_significant']}")
     
-    t_test_result = perform_t_test(df)
-    print(f"\n{t_test_result['test_name']}:")
-    print(f"  T-Statistic: {t_test_result['t_statistic']:.4f}")
-    print(f"  P-value: {t_test_result['p_value']:.6f}")
-    print(f"  Mean Difference: {t_test_result['mean_difference']:.2f} ms")
-    print(f"  Cohen's d (Effect Size): {t_test_result['cohens_d']:.4f}")
-    print(f"  Significant (α=0.05): {t_test_result['is_significant']}")
+    anova_result = perform_anova_test(df)
+    print(f"\n{anova_result['test_name']}:")
+    print(f"  F-Statistic: {anova_result['f_statistic']:.4f}")
+    print(f"  P-value: {anova_result['p_value']:.6f}")
+    print(f"  Significant (α=0.05): {anova_result['is_significant']}")
+    
+    pairwise_conversion = perform_pairwise_proportion_tests(df, baseline=baseline)
+    print(f"\n{pairwise_conversion['test_name']}:")
+    for comp_key, comp_result in pairwise_conversion['comparisons'].items():
+        print(f"  {comp_key}:")
+        print(f"    P-value: {comp_result['p_value']:.6f}")
+        print(f"    Relative Lift: {comp_result['relative_lift_pct']:.2f}%")
+        print(f"    Significant: {comp_result['is_significant']}")
+    
+    pairwise_latency = perform_pairwise_t_tests(df, baseline=baseline)
+    print(f"\n{pairwise_latency['test_name']}:")
+    for comp_key, comp_result in pairwise_latency['comparisons'].items():
+        print(f"  {comp_key}:")
+        print(f"    P-value: {comp_result['p_value']:.6f}")
+        print(f"    Mean Difference: {comp_result['mean_difference']:.2f} ms")
+        print(f"    Cohen's d: {comp_result['cohens_d']:.4f}")
+        print(f"    Significant: {comp_result['is_significant']}")
     
     print("\n" + "="*60)
     print("FINAL RECOMMENDATION")
     print("="*60)
-    winner_analysis = determine_winner(conversion_metrics, latency_metrics, 
-                                       chi_square_result, t_test_result)
+    winner_analysis = determine_winner_multivariant(
+        conversion_metrics, latency_metrics,
+        chi_square_result, anova_result,
+        pairwise_conversion, pairwise_latency,
+        baseline=baseline
+    )
     print(f"\nOverall Winner: {winner_analysis['overall_winner'] or 'Inconclusive'}")
     print(f"\nRecommendation:\n{winner_analysis['recommendation']}")
     
     results = {
         'experiment_summary': {
             'total_requests': int(len(df)),
+            'num_variants': len(variants),
+            'baseline_variant': baseline,
             'traffic_distribution': {k: int(v) for k, v in variant_counts.items()}
         },
         'conversion_metrics': conversion_metrics,
         'latency_metrics': latency_metrics,
         'statistical_tests': {
             'chi_square_test': chi_square_result,
-            't_test': t_test_result
+            'anova_test': anova_result,
+            'pairwise_conversion_tests': pairwise_conversion,
+            'pairwise_latency_tests': pairwise_latency
         },
         'winner_analysis': winner_analysis
     }

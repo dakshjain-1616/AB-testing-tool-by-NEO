@@ -10,6 +10,7 @@ from queue import Queue
 
 class Router:
     def __init__(self, traffic_split: Dict[str, float]):
+        self._validate_traffic_split(traffic_split)
         self.traffic_split = traffic_split
         self.variant_names = list(traffic_split.keys())
         self.cumulative_weights = []
@@ -17,6 +18,23 @@ class Router:
         for variant in self.variant_names:
             cumsum += traffic_split[variant]
             self.cumulative_weights.append(cumsum)
+    
+    def _validate_traffic_split(self, traffic_split: Dict[str, float]) -> None:
+        if not traffic_split:
+            raise ValueError("Traffic split cannot be empty")
+        
+        total_weight = sum(traffic_split.values())
+        if not (0.99 <= total_weight <= 1.01):
+            raise ValueError(
+                f"Traffic split weights must sum to 1.0, got {total_weight:.4f}. "
+                f"Weights: {traffic_split}"
+            )
+        
+        for variant, weight in traffic_split.items():
+            if not (0 <= weight <= 1):
+                raise ValueError(
+                    f"Weight for variant '{variant}' must be between 0 and 1, got {weight}"
+                )
     
     def assign_variant(self, user_id: str) -> str:
         hash_value = int(hashlib.md5(user_id.encode()).hexdigest(), 16)
