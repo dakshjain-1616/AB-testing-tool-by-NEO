@@ -9,6 +9,8 @@
 
 **Built by [NEO](https://heyneo.so/)** - An autonomous AI ML agent that helps developers build production-ready systems.
 
+> 💡 **Want to build your own ML framework like this?** Try NEO's VS Code extension: [Install NEO](https://marketplace.visualstudio.com/items?itemName=NeoResearchInc.heyneo)
+
 ---
 
 ## 🎯 Features
@@ -19,6 +21,8 @@
 - ⚡ **Async Logging**: Non-blocking metric collection with <1ms overhead
 - 📈 **Auto Analysis**: Automated statistical testing and winner recommendations
 - 🎨 **Rich Visualizations**: Publication-ready charts with confidence intervals
+
+> 🚀 **Try building this yourself!** NEO can help you create similar ML frameworks. [Get NEO for VS Code →](https://marketplace.visualstudio.com/items?itemName=NeoResearchInc.heyneo)
 
 ---
 
