@@ -92,8 +92,8 @@
     },
     "anova_test": {
       "test_name": "One-Way ANOVA for Latency",
-      "f_statistic": 28.46547347470824,
-      "p_value": 6.464545286625396e-13,
+      "f_statistic": 28.465473474708237,
+      "p_value": 6.464545286625419e-13,
       "is_significant": true,
       "num_groups": 3
     },
@@ -126,7 +126,7 @@
       "comparisons": {
         "baseline_vs_variant_a": {
           "t_statistic": 2.7233127301291153,
-          "p_value": 0.006543736335605183,
+          "p_value": 0.006543736335605184,
           "mean_difference": 1.4442226651953263,
           "cohens_d": 0.14642046376963574,
           "adjusted_alpha": 0.025,
@@ -134,7 +134,7 @@
         },
         "baseline_vs_variant_b": {
           "t_statistic": -5.018327457338381,
-          "p_value": 5.90267864426281e-07,
+          "p_value": 5.902678644262813e-07,
           "mean_difference": -2.9529488640580084,
           "cohens_d": -0.2714205422924476,
           "adjusted_alpha": 0.025,

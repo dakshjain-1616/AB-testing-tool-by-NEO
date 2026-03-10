@@ -4,8 +4,32 @@ from scipy import stats
 from scipy.stats import chi2_contingency, ttest_ind, f_oneway
 from itertools import combinations
 import json
+import os
+import time
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
+
+# Project root (parent of src/) — works regardless of cwd
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_LOG_FILE = PROJECT_ROOT / "data" / "experiment_logs.csv"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "results"
+
+# Streaming output for demos: unbuffered print; set DEMO_MODE=1 for short pauses between sections
+DEMO_MODE = os.environ.get("DEMO_MODE", "").lower() in ("1", "true", "yes")
+DEMO_PAUSE = 0.35  # seconds between major sections when DEMO_MODE=1
+
+
+def out(*args, **kwargs):
+    """Print with immediate flush for streaming / demo-friendly output."""
+    kwargs.setdefault("flush", True)
+    print(*args, **kwargs)
+
+
+def demo_pause():
+    """Brief pause between sections when running in demo mode."""
+    if DEMO_MODE:
+        time.sleep(DEMO_PAUSE)
+
 
 def load_experiment_data(log_file: str) -> pd.DataFrame:
     df = pd.read_csv(log_file)
@@ -308,96 +332,104 @@ def determine_winner_multivariant(conversion_metrics: Dict, latency_metrics: Dic
     }
 
 def run_analysis():
-    print("Loading experiment data...")
-    df = load_experiment_data('/root/AB_testing/data/experiment_logs.csv')
-    
-    print(f"Total records: {len(df)}")
-    print(f"\nTraffic distribution:")
-    print(df['variant'].value_counts())
-    
-    variants = sorted(df['variant'].unique())
-    baseline = 'baseline' if 'baseline' in variants else variants[0]
-    
-    print("\n" + "="*60)
-    print("SANITY CHECK: Sample Sizes")
-    print("="*60)
-    variant_counts = df['variant'].value_counts()
+    out("Loading experiment data...")
+    df = load_experiment_data(str(DEFAULT_LOG_FILE))
+
+    out(f"Total records: {len(df)}")
+    out(f"\nTraffic distribution:")
+    out(df["variant"].value_counts())
+
+    variants = sorted(df["variant"].unique())
+    baseline = "baseline" if "baseline" in variants else variants[0]
+
+    demo_pause()
+    out("\n" + "=" * 60)
+    out("SANITY CHECK: Sample Sizes")
+    out("=" * 60)
+    variant_counts = df["variant"].value_counts()
     for variant in variants:
         count = variant_counts[variant]
-        print(f"{variant}: {count} ({count/len(df)*100:.1f}%)")
-    
-    print("\n" + "="*60)
-    print("CONVERSION METRICS")
-    print("="*60)
+        out(f"{variant}: {count} ({count/len(df)*100:.1f}%)")
+
+    demo_pause()
+    out("\n" + "=" * 60)
+    out("CONVERSION METRICS")
+    out("=" * 60)
     conversion_metrics = calculate_conversion_metrics(df)
     for variant in variants:
         metrics = conversion_metrics[variant]
-        print(f"\n{variant.upper()}:")
-        print(f"  Sample Size: {metrics['sample_size']}")
-        print(f"  Conversions: {metrics['conversions']}")
-        print(f"  Conversion Rate: {metrics['conversion_rate']:.4f} ({metrics['conversion_rate']*100:.2f}%)")
-        print(f"  95% CI: [{metrics['ci_lower']:.4f}, {metrics['ci_upper']:.4f}]")
-    
-    print("\n" + "="*60)
-    print("LATENCY METRICS")
-    print("="*60)
+        out(f"\n{variant.upper()}:")
+        out(f"  Sample Size: {metrics['sample_size']}")
+        out(f"  Conversions: {metrics['conversions']}")
+        out(f"  Conversion Rate: {metrics['conversion_rate']:.4f} ({metrics['conversion_rate']*100:.2f}%)")
+        out(f"  95% CI: [{metrics['ci_lower']:.4f}, {metrics['ci_upper']:.4f}]")
+
+    demo_pause()
+    out("\n" + "=" * 60)
+    out("LATENCY METRICS")
+    out("=" * 60)
     latency_metrics = calculate_latency_metrics(df)
     for variant in variants:
         metrics = latency_metrics[variant]
-        print(f"\n{variant.upper()}:")
-        print(f"  Sample Size: {metrics['sample_size']}")
-        print(f"  Mean Latency: {metrics['mean_latency']:.2f} ms")
-        print(f"  Median Latency: {metrics['median_latency']:.2f} ms")
-        print(f"  Std Dev: {metrics['std_latency']:.2f} ms")
-        print(f"  95% CI: [{metrics['ci_lower']:.2f}, {metrics['ci_upper']:.2f}]")
-        print(f"  P95: {metrics['p95']:.2f} ms")
-        print(f"  P99: {metrics['p99']:.2f} ms")
-    
-    print("\n" + "="*60)
-    print("STATISTICAL TESTS")
-    print("="*60)
-    
+        out(f"\n{variant.upper()}:")
+        out(f"  Sample Size: {metrics['sample_size']}")
+        out(f"  Mean Latency: {metrics['mean_latency']:.2f} ms")
+        out(f"  Median Latency: {metrics['median_latency']:.2f} ms")
+        out(f"  Std Dev: {metrics['std_latency']:.2f} ms")
+        out(f"  95% CI: [{metrics['ci_lower']:.2f}, {metrics['ci_upper']:.2f}]")
+        out(f"  P95: {metrics['p95']:.2f} ms")
+        out(f"  P99: {metrics['p99']:.2f} ms")
+
+    demo_pause()
+    out("\n" + "=" * 60)
+    out("STATISTICAL TESTS")
+    out("=" * 60)
+
     chi_square_result = perform_chi_square_test(df)
-    print(f"\n{chi_square_result['test_name']}:")
-    print(f"  Chi-Square Statistic: {chi_square_result['chi2_statistic']:.4f}")
-    print(f"  P-value: {chi_square_result['p_value']:.6f}")
-    print(f"  Significant (α=0.05): {chi_square_result['is_significant']}")
-    
+    out(f"\n{chi_square_result['test_name']}:")
+    out(f"  Chi-Square Statistic: {chi_square_result['chi2_statistic']:.4f}")
+    out(f"  P-value: {chi_square_result['p_value']:.6f}")
+    out(f"  Significant (α=0.05): {chi_square_result['is_significant']}")
+
     anova_result = perform_anova_test(df)
-    print(f"\n{anova_result['test_name']}:")
-    print(f"  F-Statistic: {anova_result['f_statistic']:.4f}")
-    print(f"  P-value: {anova_result['p_value']:.6f}")
-    print(f"  Significant (α=0.05): {anova_result['is_significant']}")
-    
+    out(f"\n{anova_result['test_name']}:")
+    out(f"  F-Statistic: {anova_result['f_statistic']:.4f}")
+    out(f"  P-value: {anova_result['p_value']:.6f}")
+    out(f"  Significant (α=0.05): {anova_result['is_significant']}")
+
     pairwise_conversion = perform_pairwise_proportion_tests(df, baseline=baseline)
-    print(f"\n{pairwise_conversion['test_name']}:")
-    for comp_key, comp_result in pairwise_conversion['comparisons'].items():
-        print(f"  {comp_key}:")
-        print(f"    P-value: {comp_result['p_value']:.6f}")
-        print(f"    Relative Lift: {comp_result['relative_lift_pct']:.2f}%")
-        print(f"    Significant: {comp_result['is_significant']}")
-    
+    out(f"\n{pairwise_conversion['test_name']}:")
+    for comp_key, comp_result in pairwise_conversion["comparisons"].items():
+        out(f"  {comp_key}:")
+        out(f"    P-value: {comp_result['p_value']:.6f}")
+        out(f"    Relative Lift: {comp_result['relative_lift_pct']:.2f}%")
+        out(f"    Significant: {comp_result['is_significant']}")
+
     pairwise_latency = perform_pairwise_t_tests(df, baseline=baseline)
-    print(f"\n{pairwise_latency['test_name']}:")
-    for comp_key, comp_result in pairwise_latency['comparisons'].items():
-        print(f"  {comp_key}:")
-        print(f"    P-value: {comp_result['p_value']:.6f}")
-        print(f"    Mean Difference: {comp_result['mean_difference']:.2f} ms")
-        print(f"    Cohen's d: {comp_result['cohens_d']:.4f}")
-        print(f"    Significant: {comp_result['is_significant']}")
-    
-    print("\n" + "="*60)
-    print("FINAL RECOMMENDATION")
-    print("="*60)
+    out(f"\n{pairwise_latency['test_name']}:")
+    for comp_key, comp_result in pairwise_latency["comparisons"].items():
+        out(f"  {comp_key}:")
+        out(f"    P-value: {comp_result['p_value']:.6f}")
+        out(f"    Mean Difference: {comp_result['mean_difference']:.2f} ms")
+        out(f"    Cohen's d: {comp_result['cohens_d']:.4f}")
+        out(f"    Significant: {comp_result['is_significant']}")
+
+    demo_pause()
+    out("\n" + "=" * 60)
+    out("FINAL RECOMMENDATION")
+    out("=" * 60)
     winner_analysis = determine_winner_multivariant(
-        conversion_metrics, latency_metrics,
-        chi_square_result, anova_result,
-        pairwise_conversion, pairwise_latency,
-        baseline=baseline
+        conversion_metrics,
+        latency_metrics,
+        chi_square_result,
+        anova_result,
+        pairwise_conversion,
+        pairwise_latency,
+        baseline=baseline,
     )
-    print(f"\nOverall Winner: {winner_analysis['overall_winner'] or 'Inconclusive'}")
-    print(f"\nRecommendation:\n{winner_analysis['recommendation']}")
-    
+    out(f"\nOverall Winner: {winner_analysis['overall_winner'] or 'Inconclusive'}")
+    out(f"\nRecommendation:\n{winner_analysis['recommendation']}")
+
     results = {
         'experiment_summary': {
             'total_requests': int(len(df)),
@@ -416,13 +448,13 @@ def run_analysis():
         'winner_analysis': winner_analysis
     }
     
-    output_path = Path('/root/AB_testing/results/analysis_summary.json')
+    output_path = DEFAULT_OUTPUT_DIR / "analysis_summary.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
-    with open(output_path, 'w') as f:
+    with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
-    
-    print(f"\n\nResults saved to: {output_path}")
+
+    out(f"\n\nResults saved to: {output_path}")
 
 if __name__ == "__main__":
     run_analysis()
